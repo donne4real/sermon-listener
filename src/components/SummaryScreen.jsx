@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-export default function SummaryScreen({ sermon, onDone, onDelete }) {
+export default function SummaryScreen({ sermon, onDone, onDelete, onRegenerate }) {
   const [title, setTitle] = useState(sermon.title || 'Untitled Sermon');
 
   const handleDownload = () => {
@@ -43,28 +43,41 @@ export default function SummaryScreen({ sermon, onDone, onDelete }) {
           {new Date(sermon.date).toLocaleString()}
         </p>
 
-        <p className="section-title" style={{ marginTop: 20 }}>Summary</p>
-        <p style={{ lineHeight: 1.6 }}>{sermon.summary}</p>
-
-        <p className="section-title" style={{ marginTop: 20 }}>Main Points</p>
-        <ol className="main-points">
-          {(sermon.mainPoints || []).map((point, i) => (
-            <li key={i}>{point}</li>
-          ))}
-        </ol>
-
-        <p className="section-title" style={{ marginTop: 20 }}>
-          Passages Quoted ({(sermon.passages || []).length})
-        </p>
-        {(sermon.passages || []).length === 0 ? (
-          <p style={{ color: 'var(--text-muted)' }}>No passages detected.</p>
-        ) : (
-          sermon.passages.map((p, i) => (
-            <div className="passage-card" key={i}>
-              <div className="reference">{p.reference}</div>
-              {p.context && <div className="context">{p.context}</div>}
+        {sermon.summaryFailed ? (
+          <div className="error-box" style={{ marginTop: 20 }}>
+            No summary yet — generating it failed earlier, but the full transcript below was saved.
+            <div style={{ marginTop: 10 }}>
+              <button className="btn-primary" onClick={() => onRegenerate(sermon)}>
+                Generate Summary
+              </button>
             </div>
-          ))
+          </div>
+        ) : (
+          <>
+            <p className="section-title" style={{ marginTop: 20 }}>Summary</p>
+            <p style={{ lineHeight: 1.6 }}>{sermon.summary}</p>
+
+            <p className="section-title" style={{ marginTop: 20 }}>Main Points</p>
+            <ol className="main-points">
+              {(sermon.mainPoints || []).map((point, i) => (
+                <li key={i}>{point}</li>
+              ))}
+            </ol>
+
+            <p className="section-title" style={{ marginTop: 20 }}>
+              Passages Quoted ({(sermon.passages || []).length})
+            </p>
+            {(sermon.passages || []).length === 0 ? (
+              <p style={{ color: 'var(--text-muted)' }}>No passages detected.</p>
+            ) : (
+              sermon.passages.map((p, i) => (
+                <div className="passage-card" key={i}>
+                  <div className="reference">{p.reference}</div>
+                  {p.context && <div className="context">{p.context}</div>}
+                </div>
+              ))
+            )}
+          </>
         )}
 
         <details className="transcript-details">

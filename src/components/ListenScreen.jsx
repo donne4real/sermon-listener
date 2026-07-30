@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { detectPassages } from '../lib/bibleBooks.js';
+import { saveDraft } from '../lib/storage.js';
 
 function formatDuration(seconds) {
   const m = Math.floor(seconds / 60).toString().padStart(2, '0');
@@ -7,12 +8,12 @@ function formatDuration(seconds) {
   return `${m}:${s}`;
 }
 
-export default function ListenScreen({ speech, onFinish, onCancel }) {
+export default function ListenScreen({ speech, initialTranscript, onFinish, onCancel }) {
   const { isListening, fullTranscript, interimTranscript, finalTranscript, error, start, stop } = speech;
   const [elapsed, setElapsed] = useState(0);
 
   useEffect(() => {
-    start();
+    start(initialTranscript || '');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -22,14 +23,36 @@ export default function ListenScreen({ speech, onFinish, onCancel }) {
     return () => clearInterval(id);
   }, [isListening]);
 
+  // Persist the transcript continuously so a crash, timeout, or accidental
+  // tab close never loses what's already been captured — this is the copy
+  // that survives independently of whether Finish & Summarize succeeds.
+  useEffect(() => {
+    if (!finalTranscript) return undefined;
+    const id = setTimeout(() => saveDraft(finalTranscript), 2000);
+    return () => clearTimeout(id);
+  }, [finalTranscript]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (!finalTranscript) return;
+      e.preventDefault();
+      e.returnValue = '';
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [finalTranscript]);
+
   const detectedPassages = useMemo(() => detectPassages(finalTranscript), [finalTranscript]);
 
   const handleFinish = () => {
+    saveDraft(finalTranscript.trim());
     stop();
     onFinish(finalTranscript.trim());
   };
 
   const handleCancel = () => {
+    // Don't clear the saved draft here — if there's real content, it stays
+    // recoverable from the home screen instead of being silently discarded.
     stop();
     onCancel();
   };
@@ -41,7 +64,12 @@ export default function ListenScreen({ speech, onFinish, onCancel }) {
         <p className="status-text">
           {isListening ? `Listening… ${formatDuration(elapsed)}` : 'Starting microphone…'}
         </p>
-        {error && <div className="error-box">Microphone error: {error}</div>}
+        {error && (
+          <div className="error-box">
+            Microphone error: {error}
+            {isListening && ' — still trying to reconnect. Your transcript so far is saved.'}
+          </div>
+        )}
       </div>
 
       <div className="transcript-box">

@@ -30,6 +30,11 @@ export function useSpeechRecognition() {
     recognition.lang = 'en-US';
 
     recognition.onresult = (event) => {
+      // A successful result proves recognition is actually working, even if
+      // it recently threw a transient error (e.g. 'network') and silently
+      // auto-restarted — clear any stale error so the UI stops alarming the
+      // user about a problem that already resolved itself.
+      setError(null);
       let interim = '';
       for (let i = event.resultIndex; i < event.results.length; i++) {
         const result = event.results[i];
@@ -73,11 +78,11 @@ export function useSpeechRecognition() {
     };
   }, []);
 
-  const start = useCallback(() => {
+  const start = useCallback((seedTranscript = '') => {
     if (!recognitionRef.current) return;
     setError(null);
-    finalTranscriptRef.current = '';
-    setFinalTranscript('');
+    finalTranscriptRef.current = seedTranscript;
+    setFinalTranscript(seedTranscript);
     setInterimTranscript('');
     wantListeningRef.current = true;
     setIsListening(true);
